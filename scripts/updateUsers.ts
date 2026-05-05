@@ -17,25 +17,26 @@ interface WorkerData {
   hashrate1hr: number;
   hashrate1d: number;
   hashrate7d: number;
-  lastshare: number;
-  shares: string;
-  bestshare: string;
-  bestever: string;
+  lastshare?: number;
+  shares: string | number;
+  bestshare: string | number;
+  bestever?: string | number;
 }
 
 interface UserData {
-  authorised: number;
+  authorised?: number;
   hashrate1m: number;
   hashrate5m: number;
   hashrate1hr: number;
   hashrate1d: number;
   hashrate7d: number;
-  lastshare: number;
+  lastshare?: number;
+  lastupdate?: number;
   workers: number;
-  shares: string;
-  bestshare: string;
-  bestever: string;
-  worker: WorkerData[];
+  shares: string | number;
+  bestshare: string | number;
+  bestever?: string | number;
+  worker?: WorkerData[];
 }
 
 // Batch-oriented processing: fetch remote data for a batch of users concurrently
@@ -69,6 +70,31 @@ async function main() {
         const address = user.address;
         try {
           const userData = (await ckPoolApi.users(address)) as UserData;
+          // DGB ckpool: worker data lives in separate /workers/<address>.<name> files
+          if (!userData.worker || userData.worker.length === 0) {
+            const workerNames = ckPoolApi.listWorkerNames(address);
+            const fetched: WorkerData[] = [];
+            for (const wn of workerNames) {
+              try {
+                const wd = (await ckPoolApi.workerStatus(address, wn)) as Record<string, any>;
+                fetched.push({
+                  workername: `${address}.${wn}`,
+                  hashrate1m: wd.hashrate1m ?? 0,
+                  hashrate5m: wd.hashrate5m ?? 0,
+                  hashrate1hr: wd.hashrate1hr ?? 0,
+                  hashrate1d: wd.hashrate1d ?? 0,
+                  hashrate7d: wd.hashrate7d ?? 0,
+                  lastshare: wd.lastupdate ?? wd.lastshare ?? 0,
+                  shares: wd.shares ?? 0,
+                  bestshare: wd.bestshare ?? 0,
+                  bestever: wd.bestever ?? 0,
+                });
+              } catch {
+                // skip unavailable worker files
+              }
+            }
+            if (fetched.length > 0) userData.worker = fetched;
+          }
           return { address, userData };
         } catch (error) {
           return { address, error };
@@ -112,13 +138,13 @@ async function main() {
               // Update or create user
               const existingUser = await userRepo.findOne({ where: { address } });
               if (existingUser) {
-                existingUser.authorised = userData.authorised.toString();
+                existingUser.authorised = (userData.authorised ?? 0).toString();
                 existingUser.isActive = true;
                 await userRepo.save(existingUser);
               } else {
                 await userRepo.insert({
                   address,
-                  authorised: userData.authorised.toString(),
+                  authorised: (userData.authorised ?? 0).toString(),
                   isActive: true,
                   updatedAt: new Date().toISOString(),
                 });
@@ -132,16 +158,16 @@ async function main() {
                 hashrate1hr: convertHashrate(userData.hashrate1hr.toString()).toString(),
                 hashrate1d: convertHashrate(userData.hashrate1d.toString()).toString(),
                 hashrate7d: convertHashrate(userData.hashrate7d.toString()).toString(),
-                lastShare: BigInt(userData.lastshare).toString(),
+                lastShare: BigInt(userData.lastshare ?? userData.lastupdate ?? 0).toString(),
                 workerCount: userData.workers,
                 shares: BigInt(userData.shares).toString(),
                 bestShare: parseFloat(userData.bestshare),
-                bestEver: BigInt(userData.bestever).toString(),
+                bestEver: BigInt(userData.bestever ?? 0).toString(),
               });
               await userStatsRepo.save(userStats);
 
               // Update or create workers
-              for (const workerData of userData.worker) {
+              for (const workerData of (userData.worker ?? [])) {
                 const workerName = workerData.workername.includes('.')
                   ? workerData.workername.split('.')[1]
                   : workerData.workername.includes('_')
@@ -158,10 +184,10 @@ async function main() {
                   hashrate1hr: convertHashrate(workerData.hashrate1hr.toString()).toString(),
                   hashrate1d: convertHashrate(workerData.hashrate1d.toString()).toString(),
                   hashrate7d: convertHashrate(workerData.hashrate7d.toString()).toString(),
-                  lastUpdate: new Date(workerData.lastshare * 1000),
+                  lastUpdate: new Date((workerData.lastshare ?? 0) * 1000),
                   shares: BigInt(workerData.shares).toString(),
-                  bestShare: parseFloat(workerData.bestshare),
-                  bestEver: BigInt(workerData.bestever).toString(),
+                  bestShare: parseFloat(workerData.bestshare.toString()),
+                  bestEver: BigInt(workerData.bestever ?? 0).toString(),
                 };
 
                 let workerId: number;

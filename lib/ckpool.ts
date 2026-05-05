@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 const FETCH_TIMEOUT_MS = 10000;
 
@@ -126,6 +126,43 @@ export class CKPoolAPI {
     }
 
     const data = await this.api(`/users/${address}`);
+    return JSON.parse(data);
+  }
+
+  // Returns worker name suffixes (the part after the dot) for a given address.
+  // File mode only — HTTP ckpool embeds worker data in the user JSON.
+  listWorkerNames(address: string): string[] {
+    if (address.length === 0 || /[^a-zA-Z0-9]/.test(address)) {
+      throw new CKPoolError(
+        CKPoolErrorCode.INVALID,
+        'Invalid address: only alphanumeric characters allowed'
+      );
+    }
+    if (this.isHttp) return [];
+    try {
+      const files = readdirSync(`${this.apiUrl}/workers`);
+      return files
+        .filter((f) => f.startsWith(`${address}.`))
+        .map((f) => f.slice(address.length + 1));
+    } catch {
+      return [];
+    }
+  }
+
+  async workerStatus(address: string, workerName: string): Promise<unknown> {
+    if (address.length === 0 || /[^a-zA-Z0-9]/.test(address)) {
+      throw new CKPoolError(
+        CKPoolErrorCode.INVALID,
+        'Invalid address: only alphanumeric characters allowed'
+      );
+    }
+    if (workerName.length === 0 || /[^a-zA-Z0-9]/.test(workerName)) {
+      throw new CKPoolError(
+        CKPoolErrorCode.INVALID,
+        'Invalid worker name: only alphanumeric characters allowed'
+      );
+    }
+    const data = await this.api(`/workers/${address}.${workerName}`);
     return JSON.parse(data);
   }
 }

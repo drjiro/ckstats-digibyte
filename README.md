@@ -91,6 +91,33 @@ Fork of [mrv777/ckstats](https://github.com/mrv777/ckstats) with patches for Dig
 - DigiByte ckpool does not output `diff` field in `pool.status`
 - Fixed by adding `?? 0` default value
 
+### 3. Avg Time to Find a Block display fix for DGB (`components/PoolStatsDisplay.tsx`)
+- DGB ckpool omits `diff` field → stored as `0` → condition `roundedDiffFactor > 0` always false → "N/A" displayed
+- When `diff = 0`, fall back to `bestshare` as the difficulty estimate (for a solo pool that found a block, `bestshare ≈ network difficulty`)
+
+### 4. Worker stats from separate files for DGB (`lib/ckpool.ts`, `scripts/updateUsers.ts`)
+- DGB ckpool writes per-worker data to `logs/workers/<address>.<workername>` files instead of embedding a `worker` array in the user JSON
+- Added `listWorkerNames(address)` and `workerStatus(address, workerName)` to `CKPoolAPI` (file mode only)
+- `updateUsers.ts` fetches from the workers directory when user JSON has no worker array
+- DGB worker files use `lastupdate` instead of `lastshare`; added `lastupdate` as fallback
+
+### 5. Avg Time to Find a Block fix using UserStats bestShare (`scripts/seed.ts`)
+- DGB pool.status omits `bestshare`; seed now falls back to `MAX(bestShare)` from `UserStats` table
+- Combined with the display fix (change #3), Avg Time is now calculated correctly for DGB
+
+### 6. Found Blocks list page (`lib/entities/Block.ts`, `scripts/importBlocks.ts`, `app/blocks/page.tsx`)
+- Added `Block` DB entity and migration (`AddBlockTable1710000000003`)
+- `pnpm import-blocks` reads `ckdb*.log` files, imports confirmed `block_solve` entries
+- `/blocks` page shows height, hash, miner, worker, reward (DGB), difficulty, time
+- "Found Blocks" link on main page now points to `/blocks` instead of mempool.space
+- Add `pnpm import-blocks` to crontab to keep block list up to date
+
+### 7. DGB ckpool compatibility for user stats (`scripts/updateUsers.ts`)
+- DGB ckpool omits `authorised`, `lastshare`, `bestever`, and `worker` fields from user logs
+- Made these fields optional in `UserData` and `WorkerData` interfaces
+- Added `?? 0` / `?? []` defaults at all usage points so missing fields do not cause runtime errors
+- `shares` and `bestshare` typed as `string | number` since DGB returns them as JSON numbers
+
 ## Tested environment
 - Ubuntu 22.04 LTS
 - Node.js v18.20.8

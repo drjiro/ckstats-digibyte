@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 
+import { Block } from './entities/Block';
 import { PoolStats } from './entities/PoolStats';
 import { User } from './entities/User';
 import { UserStats } from './entities/UserStats';
@@ -14,7 +15,7 @@ const AppDataSource = new DataSource({
   username: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'password',
   database: process.env.DB_NAME || 'postgres',
-  entities: [PoolStats, User, UserStats, Worker, WorkerStats],
+  entities: [Block, PoolStats, User, UserStats, Worker, WorkerStats],
   logging: process.env.NODE_ENV === 'development',
   ssl:
     process.env.DB_SSL === 'true'

@@ -132,24 +132,23 @@ export default function PoolStatsDisplay({
                     const roundedDiffFactor = Math.round(
                       Number(stats.diff) * 100
                     );
-                    return Number(stats.hashrate6hr) > 0 &&
+                    const difficulty =
                       roundedDiffFactor > 0
+                        ? (BigInt(stats.accepted) * BigInt(10000)) /
+                          BigInt(roundedDiffFactor)
+                        : BigInt(stats.bestshare);
+                    return Number(stats.hashrate6hr) > 0 && difficulty > 0n
                       ? formatDuration(
                           calculateAverageTimeToBlock(
                             stats.hashrate6hr,
-                            (BigInt(stats.accepted) * BigInt(10000)) /
-                              BigInt(roundedDiffFactor)
+                            difficulty
                           )
                         )
                       : 'N/A';
                   })()}
                 </div>
                 <div className="stat-desc">
-                  <Link
-                    href="https://mempool.space/mining/pool/solock"
-                    target="_blank"
-                    className="link text-primary"
-                  >
+                  <Link href="/blocks" className="link text-primary">
                     Found Blocks
                   </Link>
                 </div>

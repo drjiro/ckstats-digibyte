@@ -2,6 +2,7 @@ import NodeCache from 'node-cache';
 
 import { CKPoolAPI, CKPoolError, CKPoolErrorCode } from './ckpool';
 import { getDb } from './db';
+import { Block } from './entities/Block';
 import { PoolStats } from './entities/PoolStats';
 import { User } from './entities/User';
 import { UserStats } from './entities/UserStats';
@@ -357,6 +358,23 @@ export async function updateSingleUser(address: string): Promise<void> {
     console.error(`Error updating user ${address}:`, error);
     throw error;
   }
+}
+
+export async function getBlocks(limit: number = 50): Promise<Block[]> {
+  const cacheKey = `blocks:${limit}`;
+  const cached = cache.get<Block[]>(cacheKey);
+  if (cached) return cached;
+
+  const db = await getDb();
+  const result = await db
+    .getRepository(Block)
+    .createQueryBuilder('block')
+    .orderBy('block.minedAt', 'DESC')
+    .limit(limit)
+    .getMany();
+
+  cache.set(cacheKey, result, 60);
+  return result;
 }
 
 export async function toggleUserStatsPrivacy(

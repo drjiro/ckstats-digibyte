@@ -46,6 +46,28 @@ async function seed() {
     const db = await getDb();
     const poolStatsRepository = db.getRepository(PoolStats);
 
+    // For DGB ckpool: pool.status omits bestshare/accepted/rejected;
+    // fall back to aggregated values from the latest UserStats rows.
+    let bestshare = BigInt(Math.round(Number(stats.bestshare ?? 0)));
+    let accepted = BigInt(stats.accepted ?? 0);
+    if (bestshare === 0n || accepted === 0n) {
+      const result = await db.query(`
+        SELECT MAX("bestShare") as "maxBestShare", SUM("shares"::numeric) as "totalShares"
+        FROM "UserStats" us
+        WHERE us.timestamp = (
+          SELECT MAX(u2.timestamp) FROM "UserStats" u2 WHERE u2."userAddress" = us."userAddress"
+        )
+      `);
+      if (bestshare === 0n) {
+        const maxBestShare = parseFloat(result[0]?.maxBestShare ?? '0');
+        if (maxBestShare > 0) bestshare = BigInt(Math.round(maxBestShare));
+      }
+      if (accepted === 0n) {
+        const totalShares = result[0]?.totalShares ?? '0';
+        accepted = BigInt(Math.round(Number(totalShares)));
+      }
+    }
+
     const poolStats = poolStatsRepository.create({
       runtime: parseInt(stats.runtime ?? '0'),
       users: parseInt(stats.Users ?? '0'),
@@ -60,9 +82,9 @@ async function seed() {
       hashrate1d: convertHashrate(stats.hashrate1d ?? '0'),
       hashrate7d: convertHashrate(stats.hashrate7d ?? '0'),
       diff: stats.diff ?? 0,
-      accepted: BigInt(stats.accepted ?? 0),
+      accepted,
       rejected: BigInt(stats.rejected ?? 0),
-      bestshare: BigInt(stats.bestshare ?? 0),
+      bestshare,
       SPS1m: stats.SPS1m,
       SPS5m: stats.SPS5m,
       SPS15m: stats.SPS15m,
