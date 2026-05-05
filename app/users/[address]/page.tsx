@@ -76,6 +76,28 @@ export default async function UserPage({
 
   const latestStats = user.stats[0]; // Assuming stats are ordered by timestamp desc
 
+  // When diff=0 (DGB ckpool doesn't expose network difficulty), use bestshare as proxy.
+  const blockChances = (() => {
+    if (!latestStats.hashrate1hr) return null;
+    if (stats?.diff && Number(stats.diff) > 0) {
+      return calculateBlockChances(
+        BigInt(latestStats.hashrate1hr),
+        Number(stats.diff),
+        BigInt(stats.accepted)
+      );
+    }
+    const bestshare = Math.round(Number(stats?.bestshare ?? 0));
+    if (bestshare > 0) {
+      // Pass difficulty=100 and accepted=bestshare so networkDiff resolves to bestshare.
+      return calculateBlockChances(
+        BigInt(latestStats.hashrate1hr),
+        100,
+        BigInt(bestshare)
+      );
+    }
+    return null;
+  })();
+
   const renderPercentageChange = (key: string) => {
     if (historicalStats.length < 120) return 'N/A';
 
@@ -113,7 +135,9 @@ export default async function UserPage({
         <div className="stat">
           <div className="stat-title">Authorised</div>
           <div className="stat-value text-3xl">
-            {new Date(Number(user.authorised) * 1000).toLocaleDateString()}
+            {Number(user.authorised) > 0
+              ? new Date(Number(user.authorised) * 1000).toLocaleDateString()
+              : 'N/A'}
           </div>
         </div>
         <div className="stat">
@@ -182,49 +206,25 @@ export default async function UserPage({
         <div className="stat">
           <div className="stat-title">1 Day</div>
           <div className="stat-value text-3xl">
-            {latestStats.hashrate1hr && stats?.diff
-              ? calculateBlockChances(
-                  latestStats.hashrate1hr,
-                  Number(stats.diff),
-                  stats.accepted
-                )['1d']
-              : 'N/A'}
+            {blockChances ? blockChances['1d'] : 'N/A'}
           </div>
         </div>
         <div className="stat">
           <div className="stat-title">1 Week</div>
           <div className="stat-value text-3xl">
-            {latestStats.hashrate1hr && stats?.diff
-              ? calculateBlockChances(
-                  latestStats.hashrate1hr,
-                  Number(stats.diff),
-                  stats.accepted
-                )['1w']
-              : 'N/A'}
+            {blockChances ? blockChances['1w'] : 'N/A'}
           </div>
         </div>
         <div className="stat">
           <div className="stat-title">1 Month</div>
           <div className="stat-value text-3xl">
-            {latestStats.hashrate1hr && stats?.diff
-              ? calculateBlockChances(
-                  latestStats.hashrate1hr,
-                  Number(stats.diff),
-                  stats.accepted
-                )['1m']
-              : 'N/A'}
+            {blockChances ? blockChances['1m'] : 'N/A'}
           </div>
         </div>
         <div className="stat">
           <div className="stat-title">1 Year</div>
           <div className="stat-value text-3xl">
-            {latestStats.hashrate1hr && stats?.diff
-              ? calculateBlockChances(
-                  latestStats.hashrate1hr,
-                  Number(stats.diff),
-                  stats.accepted
-                )['1y']
-              : 'N/A'}
+            {blockChances ? blockChances['1y'] : 'N/A'}
           </div>
         </div>
       </div>
