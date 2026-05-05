@@ -161,8 +161,10 @@ async function main() {
                 lastShare: BigInt(userData.lastshare ?? userData.lastupdate ?? 0).toString(),
                 workerCount: userData.workers,
                 shares: BigInt(userData.shares).toString(),
-                bestShare: parseFloat(userData.bestshare),
-                bestEver: BigInt(userData.bestever ?? 0).toString(),
+                bestShare: parseFloat(userData.bestshare.toString()),
+                bestEver: BigInt(
+                  Math.round(Number(userData.bestever ?? userData.bestshare ?? 0))
+                ).toString(),
               });
               await userStatsRepo.save(userStats);
 
@@ -187,7 +189,9 @@ async function main() {
                   lastUpdate: new Date((workerData.lastshare ?? 0) * 1000),
                   shares: BigInt(workerData.shares).toString(),
                   bestShare: parseFloat(workerData.bestshare.toString()),
-                  bestEver: BigInt(workerData.bestever ?? 0).toString(),
+                  bestEver: BigInt(
+                    Math.round(Number(workerData.bestever ?? workerData.bestshare ?? 0))
+                  ).toString(),
                 };
 
                 let workerId: number;
